@@ -14,7 +14,7 @@ Extract from the input a single message request and return exactly one valid JSO
 - Return ONLY valid JSON.
 - Avoid completely markdown.
 - Avoid completely code fences.
-- Avoid completely explanations.
+- Avoid completely explanations and introductions.
 - Avoid completely extra keys.
 - Use exactly the keys "to", "message", and "type".
 - Use double quotes for all strings.
