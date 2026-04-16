@@ -48,8 +48,11 @@ class UserNotificationRequest(UserNotificationRequestBase, table=True):
 
 # region DTOs
 
-class CreateRequest(SQLModel):
+class CreateRequestResponse(SQLModel):
     id: str
+
+class CreateRequestBody(SQLModel):
+    user_input: str
 
 class RequestStatusResponse(SQLModel):
     id: str
