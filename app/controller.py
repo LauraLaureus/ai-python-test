@@ -23,7 +23,7 @@ BASE_URL = "http://localhost:3001"
     retry=retry_if_exception_type((requests.RequestException,)),  # Solo errores de red
 )
 def extract(user_input:str, system_prompt:str) -> tuple[str,str,str]: 
-    ENDPOINT = f"{BASE_URL}/ai/extract"
+    ENDPOINT = f"{BASE_URL}/v1/ai/extract"
 
     headers = {
         "X-API-Key": "test-dev-2026"
@@ -34,20 +34,25 @@ def extract(user_input:str, system_prompt:str) -> tuple[str,str,str]:
         {"role":"user","content":user_input},
           ]
 
-    response = requests.post(ENDPOINT,
-                  headers=headers,
-                   json={"messages": messages},
-                  timeout=(3.0, 10.0), # 3 seconds for connection and 10 por read.
-                  )
+    try:
+        response = requests.post(ENDPOINT,
+                    headers=headers,
+                    json={"messages": messages},
+                    timeout=(3.0, 10.0), # 3 seconds for connection and 10 por read.
+                    )
 
-    response.raise_for_status()
+        response.raise_for_status()
 
-    if response.status_code == 200:
-        data = response.json()
-         # El mensaje de la respuesta está en choices[0].message.content
-        content = data['choices'][0]['message']['content']
-        extracted_message = parse_llm_response(content)
-        return (extracted_message.message, extracted_message.to, extracted_message.type)
+        if response.status_code == 200:
+            data = response.json()
+            # El mensaje de la respuesta está en choices[0].message.content
+            content = data['choices'][0]['message']['content']
+            print(f"EXTRACTED CONTENT:\n\n{content}")
+            extracted_message = parse_llm_response(content)
+            return (extracted_message.message, extracted_message.to, extracted_message.type)
+    except Exception as e:
+        print(f"CONTROLLER ERROR:{e}")
+        raise e
 
 
 @retry(
