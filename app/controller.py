@@ -47,8 +47,9 @@ def extract(user_input:str, system_prompt:str) -> tuple[str,str,str]:
             data = response.json()
             # El mensaje de la respuesta está en choices[0].message.content
             content = data['choices'][0]['message']['content']
-            print(f"EXTRACTED CONTENT:\n\n{content}")
+            print(f"EXTRACTED CONTENT FROM API:\n\n{content}")
             extracted_message = parse_llm_response(content)
+            print(f"EXTRACTED CONTENT FROM PARSER:\n\n{extracted_message}")
             return (extracted_message.message, extracted_message.to, extracted_message.type)
     except Exception as e:
         print(f"CONTROLLER ERROR:{e}")

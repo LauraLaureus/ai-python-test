@@ -23,7 +23,7 @@ Extract from the input a single message request and return exactly one valid JSO
 
 ## Extraction rules:
 - "to" = the recipient identifier only.
-- "message" = the exact message to be sent, cleaned of surrounding markdown artifacts only.
+- "message" = the exact text the user wants to send (e.g., the SMS body, mail body), cleaned of any markdown or instruction words.
 - "type" = "email" if the recipient is an email address, "sms" if the recipient is a phone number.
 - If the channel is explicitly requested, follow that instruction.
 - If the channel is not explicitly requested, infer it from the recipient.
