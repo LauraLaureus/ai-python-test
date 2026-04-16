@@ -2,6 +2,7 @@ from pydantic import BaseModel
 from enum import Enum
 from sqlmodel import SQLModel, Field
 from uuid import uuid4
+from typing import Optional
 
 # region Enums
 class RequestType(str, Enum):
@@ -25,9 +26,9 @@ class ProviderPriority(str,Enum):
 # region SQLModel
 
 class NotificationBase(SQLModel):
-    to: str
-    message: str
-    type: RequestType
+    to: Optional[str] = None
+    message: Optional[str] = None
+    type: Optional[RequestType] = None
 
 class UserNotificationRequestBase(NotificationBase):
     user_input : str
