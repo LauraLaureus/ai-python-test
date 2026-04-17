@@ -23,6 +23,17 @@ BASE_URL = "http://localhost:3001"
     retry=retry_if_exception_type((requests.RequestException,)),  # Solo errores de red
 )
 def extract(user_input:str, system_prompt:str) -> tuple[str,str,str]: 
+    """
+    Calls the notification extraction endpoint with the provided system_prompt to extract 
+    the information from the user_input. 
+
+    Args:
+        user_input: the user input in natural language.
+        system_prompt: the instructions to extract the information from the user_input. 
+
+    Returns:
+        A tuple with the message, to and type of the request. 
+    """
     ENDPOINT = f"{BASE_URL}/v1/ai/extract"
 
     headers = {
@@ -62,7 +73,16 @@ def extract(user_input:str, system_prompt:str) -> tuple[str,str,str]:
     retry=retry_if_exception_type((requests.RequestException,)),  # Solo errores de red
 )
 def notify(message:str,to:str,type:str, priority : ProviderPriority = "normal", trace_id: str = None):
+    """
+    Calls the notification provider with the required information. 
 
+    Args:
+        message: the extracted message from the user's request.
+        to: the user's identifier (it can be a telephone number or an email)
+        type: type of message (it can be sms or email)
+        priority: opcional parameter for setting the priority of the message according to the notification providers documentation.
+        trace_id: opcional parameter for sending to the notification provider.
+    """
     ENDPOINT = f"{BASE_URL}/v1/notify"
 
     headers = {
@@ -98,8 +118,9 @@ def notify(message:str,to:str,type:str, priority : ProviderPriority = "normal", 
 
 
 PHONE_RE = re.compile(r"\+?\d[\d\s\-\(\)]{6,}\d")
-EMAIL_RE = re.compile(r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[A-Za-z]{2,}\b")
+EMAIL_RE = re.compile(r"\b[a-zA-Z0-9._%+\-]+@[a-zA-Z0-9.\-]+\.[A-Za-z]{2,}\b") # self-note: using \p{L} is not necessary for unicode support. Email address cannot contain chars with accents. 
 
+# Validation Class
 class ExtractedMessage(BaseModel):
     to: str
     message: str
@@ -120,6 +141,16 @@ class ExtractedMessage(BaseModel):
         return v
 
 def normalize_phone(value: str) -> Optional[str]:
+    """
+    Normalize the phone number to +NNNNNNNNNNN if the + sign is found. 
+    Otherwise only the numbers are provided without any separation character. 
+
+    Args:
+        value: original string with the telephone number
+
+    Returns:
+        A normalized telephone number.
+    """
     value = value.strip()
     has_plus = value.startswith("+")
     digits = re.sub(r"\D", "", value)
@@ -128,12 +159,30 @@ def normalize_phone(value: str) -> Optional[str]:
     return f"+{digits}" if has_plus else digits
 
 def strip_markdown_fences(text: str) -> str:
+    """
+    Remove the markdown fences(```, ```json).
+
+    Args:
+        text: original message
+    
+    Return:
+        The message without the json markdown fences (```, ```json)
+    """
     text = text.strip().replace("\ufeff", "")
     text = re.sub(r"^```(?:json)?\s*", "", text, flags=re.IGNORECASE)
     text = re.sub(r"\s*```$", "", text)
     return text.strip()
 
 def extract_json_block(text: str) -> str:
+    """
+    Extracts the json block in case it's in between text. 
+    
+    Args:
+        text: original message
+
+    Returns:
+        A text with the JSON object
+    """
     start = text.find("{")
     end = text.rfind("}")
     if start != -1 and end != -1 and end > start:
@@ -141,6 +190,21 @@ def extract_json_block(text: str) -> str:
     return text
 
 def repair_json(text: str) -> str:
+    """
+    Apply several known rules for repairing a mad-formatted json:
+        - remove markdown fences
+        - extract json block
+        - replace wrong double quote character
+        - remove trailing comma before a closing symbol.
+        - add missing double quote to keys
+        - replace single quote with double one. 
+
+    Args:
+        text: original text
+
+    Returns:
+        Repaired json text
+    """
     text = strip_markdown_fences(text)
     text = extract_json_block(text)
     text = text.replace("“", '"').replace("”", '"').replace("’", "'").replace("‘", "'")
@@ -151,6 +215,15 @@ def repair_json(text: str) -> str:
     return text
 
 def fallback_extract(raw: str) -> dict:
+    """
+    Extracts using regex in case the parsing to json fails. 
+
+    Args:
+        raw: repaired json text. 
+
+    Returns:
+        Dictionary with the email, to and type extracted. 
+    """
     lowered = raw.lower()
 
     email = EMAIL_RE.search(raw)
@@ -181,6 +254,15 @@ def fallback_extract(raw: str) -> dict:
     }
 
 def parse_llm_response(raw: str) -> ExtractedMessage:
+    """
+    Cleans and parses the LLM response into the ExtractedMessage object. 
+
+    Args:
+        raw: original LLM response
+
+    Returns:
+        ExtractedMessage pydantic object. 
+    """
     cleaned = repair_json(raw)
 
     try:
