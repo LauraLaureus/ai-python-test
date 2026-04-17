@@ -10,18 +10,41 @@ import db
 # region App configuration
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    """
+    Method for initialization and config at the App level
+
+    Args:
+        app: the FastAPI app
+    """
     app.state.system_prompt = c.load_system_prompt()
     db.create_db_and_tables()
     yield
+    # Clean up should be performed here.
 
 app = FastAPI(title="Notification Service (Technical Test)", lifespan=lifespan)
-# we don't have to do anything with the port since it's already config in the Dockerfile
+# we don't have to do anything with the port since it's already config in the Dockerfile.
 
 def get_system_prompt(request: Request) -> str:
+    """
+    Get the system prompt from the app. 
+
+    Args:
+        request: current request
+    
+    Returns:
+        The system prompt stored at the app level.
+    """
     return request.app.state.system_prompt
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    """
+    All unhandled exceptions should be gathered here
+
+    Args:
+        request: current request
+        exception: triggered exception
+    """
     return JSONResponse(
         status_code=500,
         content={
@@ -44,6 +67,15 @@ async def global_exception_handler(request: Request, exc: Exception):
     status_code=status.HTTP_201_CREATED
 )
 def create_request(payload: m.CreateRequestBody, session: Session = Depends(db.get_session)):
+    """
+    Create a notification request. 
+
+    Args: 
+        payload: A JSON or dict with the 'user_input' key.
+
+    Returns:
+        201 CREATED with a id of the created request. 
+    """
     user_notification_request = m.UserNotificationRequest.model_validate(payload)
     session.add(user_notification_request)
     session.commit()
@@ -61,6 +93,15 @@ def create_request(payload: m.CreateRequestBody, session: Session = Depends(db.g
     description="Return the current status of the notification. It can be 'queued', 'processing', 'sent' or 'failure'."
 )
 def get_request_status(id:str, session: Session = Depends(db.get_session)):
+    """
+    Get the current status of a notification request. 
+
+    Args:
+        id: the id of the notification request. 
+
+    Returns:
+        A request status response with the id and the status
+    """
     
     notification = session.get(m.UserNotificationRequest,id)
     if not notification:
@@ -84,6 +125,15 @@ def get_request_status(id:str, session: Session = Depends(db.get_session)):
     description="Returns the 'Accepted' code if the provided notification id exists. Returns 404(Not found) otherwise."
 )
 def process_request(id:str,  background_tasks: BackgroundTasks, session: Session = Depends(db.get_session), system_prompt: str = Depends(get_system_prompt)):
+    """
+    Extract the information from the user request and if the information was properly extracted the notification is sent. 
+
+    Args:
+        id: id of the request to process
+
+    Returns:
+        202 Accepted 
+    """
     user_request = session.get(m.UserNotificationRequest,id)
     if not user_request:
         raise HTTPException(
@@ -107,6 +157,13 @@ def process_request(id:str,  background_tasks: BackgroundTasks, session: Session
 
 # region processing background task
 def extract_and_notify(id:str, system_prompt:str):
+    """
+    Extracts the information and performs notification if it's feasible.
+
+    Args:
+        id: id of the user request. 
+        system_prompt: app's instructions for extraction
+    """
 
     with Session(db.engine) as session:
         user_request = session.get(m.UserNotificationRequest,id)
@@ -114,8 +171,6 @@ def extract_and_notify(id:str, system_prompt:str):
             return
         
         try:
-            # notification_for_provider = m.CreateRequestBody.model_validate(user_request)
-            # c.call_provider(notification=notification_for_provider)
             message, to, type = c.extract(user_request.user_input,system_prompt)
 
             user_request.type = type
